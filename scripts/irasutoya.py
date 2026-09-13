@@ -6,10 +6,12 @@
   irasutoya.py b64  <query|path> [maxpx]   다운로드 후 data URI 출력 (기본 480px)
   옵션: --json (전체 필드)  --urls (원본 URL 포함)  --open (미리보기로 열기)
 """
-import base64, json, os, re, shutil, subprocess, sys, tempfile, urllib.parse
+import base64, json, os, random, re, shutil, subprocess, sys, tempfile, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
-FEED = "https://www.irasutoya.com/feeds/posts/default"
+FEED = "https://www.irasutoya.com/feeds/posts/summary"   # summary is ~40% smaller than default
+HOME = "https://www.irasutoya.com/"
+CACHE = os.path.expanduser("~/.cache/irasutoya-labels.txt")
 UA   = "Mozilla/5.0"
 PART = "をがのにはでへとやもか"
 OUT  = os.path.expanduser(os.environ.get("IRASUTOYA_OUT", "~/Downloads/irasutoya"))
@@ -117,10 +119,16 @@ def curl(url, binary=False, t="12"):
     return subprocess.run(["curl", "-sSL", "--compressed", "-m", t, "-A", UA, url],
                           capture_output=True).stdout
 
-def fetch(q):
+def feed_url(q=None, label=None, n=20, start=1):
+    url = FEED + ("/-/" + urllib.parse.quote(label) if label else "")
+    p = {"alt": "json", "max-results": n, "start-index": start}
+    if q:
+        p["q"] = q
+    return url + "?" + urllib.parse.urlencode(p)
+
+def fetch(q=None, label=None, n=20, start=1):
     try:
-        feed = json.loads(curl(FEED + "?" + urllib.parse.urlencode(
-            {"q": q, "alt": "json", "max-results": 20})))["feed"]
+        feed = json.loads(curl(feed_url(q, label, n, start)))["feed"]
     except Exception:
         return []
     out = []
@@ -138,7 +146,7 @@ def fetch(q):
                     "q": q})
     return out
 
-def search(q, limit=10):
+def search(q, limit=10, label=None):
     vs, toks = variants(q)
     with ThreadPoolExecutor(max_workers=len(vs)) as ex:
         groups = list(ex.map(fetch, vs))
@@ -153,7 +161,41 @@ def search(q, limit=10):
         ex, pa = hits(t, toks)
         person = 1 if re.search(r"人|男|女|子|さん|くん|ちゃん", t) else 0
         return (-(ex * 10 + pa), order[r["q"]], -person, len(t))
-    return sorted(best.values(), key=score)[:limit], vs
+    ranked = sorted(best.values(), key=score)
+    if label:
+        keep = [r for r in ranked if any(label in x for x in r["labels"])]
+        if keep:
+            ranked = keep
+        else:
+            sys.stderr.write(f"note: no result carries label {label!r}; showing unfiltered\n")
+    return ranked[:limit], vs
+
+def all_labels():
+    """Site label list from the Blogger widget on the home page. Cached for a day."""
+    import time
+    if os.path.exists(CACHE) and time.time() - os.path.getmtime(CACHE) < 86400:
+        return open(CACHE, encoding="utf-8").read().split()
+    html = curl(HOME, t="20").decode("utf-8", "replace")
+    found = re.findall(r'/search/label/([^"\'?>]+)', html)
+    labels, seen = [], set()
+    for f in found:
+        L = urllib.parse.unquote(f)
+        if L not in seen:
+            seen.add(L); labels.append(L)
+    if labels:
+        os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+        open(CACHE, "w", encoding="utf-8").write("\n".join(labels))
+    return labels
+
+def random_entries(n=1):
+    try:
+        total = int(json.loads(curl(feed_url(n=0)))["feed"]["openSearch$totalResults"]["$t"])
+    except Exception:
+        return []
+    picks = [random.randint(1, max(total - 1, 1)) for _ in range(n)]
+    with ThreadPoolExecutor(max_workers=min(n, 6)) as ex:
+        got = list(ex.map(lambda i: fetch(n=1, start=i), picks))
+    return [g[0] for g in got if g]
 
 def dims(p):
     d = open(p, "rb").read(33)
@@ -186,33 +228,89 @@ def shrink(path, px):
         sys.stderr.write("note: no sips/Pillow, emitting full size\n")
         return path
 
-def report(res, vs, urls=False):
-    print("tried: " + " | ".join(vs) + f"   ({len(res)} hits)")
+def report(res, header, urls=False):
+    print(header + f"   ({len(res)} hits)")
     for i, r in enumerate(res, 1):
-        mark = "*" if "path" in r else " "
-        print(f"{i:2}{mark} {r['title']} | {r['file']} | {','.join(r['labels'][:3])}")
+        print(f"{i:2}{'*' if 'path' in r else ' '} {r['title']} | {r['file']} | {','.join(r['labels'][:3])}")
         if "path" in r:
             w, h = dims(r["path"])
             print(f"     saved {r['path']} ({r['bytes']//1024}KB {w}x{h})  src {r['page']}")
         elif urls:
             print("     " + r["img"])
 
-def main():
-    a = [x for x in sys.argv[1:] if not x.startswith("--")]
-    f = {x for x in sys.argv[1:] if x.startswith("--")}
-    cmd, q = (a + ["find", ""])[0], (a + ["find", ""])[1] if len(a) > 1 else ""
-    n = int(a[2]) if len(a) > 2 and a[2].isdigit() else (1 if cmd in ("get", "b64") else 10)
+def parse_args(argv):
+    pos, flags, label = [], set(), None
+    i = 0
+    while i < len(argv):
+        x = argv[i]
+        if x == "--label" and i + 1 < len(argv):
+            label = argv[i + 1]; i += 2; continue
+        if x.startswith("--label="):
+            label = x.split("=", 1)[1]; i += 1; continue
+        flags.add(x) if x.startswith("--") else pos.append(x)
+        i += 1
+    return pos, flags, label
 
+USAGE = """irasutoya.py \u2014 search and download \u3044\u3089\u3059\u3068\u3084 illustrations
+
+  find   "<japanese>" [n]      search, list candidates
+  get    "<japanese>" [n]      search + download the top n            (default 1)
+  browse "<label>"    [n]      list everything under one label
+  random              [n]      n random illustrations
+  labels ["<substr>"]          list the site's labels
+  b64    <query|path> [px]     print a data URI                       (default 480px)
+
+  --label "<name>"   keep only results carrying that label
+  --get              also download what was listed (browse / random)
+  --open  --urls  --json
+
+  Output dir: $IRASUTOYA_OUT (default ~/Downloads/irasutoya)"""
+
+def main():
+    a, f, label = parse_args(sys.argv[1:])
+    cmd = (a + ["find"])[0]
+    q = a[1] if len(a) > 1 else ""
+    n = int(a[2]) if len(a) > 2 and a[2].isdigit() else (1 if cmd in ("get", "b64") else 10)
+    if cmd == "random":                      # random takes its count as the first arg
+        n = int(q) if q.isdigit() else 1
+
+    if (cmd in ("-h", "--help", "help")
+            or cmd not in ("find", "get", "browse", "random", "labels", "b64")
+            or f & {"-h", "--help"}
+            or (cmd in ("find", "get", "b64") and not q)):
+        print(USAGE); return
+
+    if cmd == "labels":
+        ls = [x for x in all_labels() if not q or q in x]
+        print(f"{len(ls)} labels")
+        print("  ".join(ls))
+        return
+
+    path, header = None, ""
     if cmd == "b64" and os.path.exists(q):
-        path, res, vs = q, [], []
+        res = []
+        path = q
+    elif cmd == "random":
+        res = random_entries(max(n, 1))
+        header = "random"
+    elif cmd == "browse":
+        target = q or label
+        if not target:
+            print("browse needs a label \u2014 try: irasutoya.py labels"); return
+        res = fetch(label=target, n=n)
+        header = f"label: {target}"
     else:
-        res, vs = search(q, 10)
+        res, vs = search(q, 10, label)
+        header = "tried: " + " | ".join(vs) + (f"   [label {label}]" if label else "")
+
+    if path is None:
         if not res:
-            print("tried: " + " | ".join(vs) + "   (0 hits) — 더 넓은 명사 한 개로 다시 검색하세요")
+            print(header + "   (0 hits) \u2014 try one broader noun")
             return
-        if cmd in ("get", "b64"):
+        if cmd in ("get", "b64") or "--get" in f:
             with ThreadPoolExecutor(max_workers=4) as ex:
-                fs = [(r, ex.submit(grab, r["img"], os.path.join(OUT, r["file"]))) for r in res[:n]]
+                fs = [(r, ex.submit(grab, r["img"], os.path.join(OUT, r["file"])))
+                      for r in res[:n]]
             for r, fu in fs:
                 r["path"], r["bytes"] = os.path.join(OUT, r["file"]), fu.result()
         path = res[0].get("path")
@@ -223,10 +321,11 @@ def main():
         return
 
     if "--json" in f:
-        print(json.dumps({"tried": vs, "results": res}, ensure_ascii=False, indent=1))
+        print(json.dumps(res, ensure_ascii=False, indent=1))
     else:
-        report(res, vs, "--urls" in f)
+        report(res, header, "--urls" in f)
     if "--open" in f and path:
-        subprocess.run(["open", "-a", "Preview", path])
+        opener = "open" if shutil.which("open") else "xdg-open"
+        subprocess.run([opener, path], capture_output=True)
 
 main()

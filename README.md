@@ -28,6 +28,9 @@ searching `サル` stops surfacing `アンドリューサルクス`, a prehistor
 
 Pick the concept word. The script handles the spelling.
 
+Queries go to the `/feeds/posts/summary` endpoint rather than `/default` — same fields,
+about 40% less payload, which matters when a single search fans out to a dozen requests.
+
 ## Install
 
 ```bash
@@ -43,12 +46,20 @@ Requires Python 3 and `curl`. No third-party packages. Network access to
 
 | Command | |
 |---|---|
-| `find "<japanese>"` | search only, 10 candidates |
+| `find "<japanese>" [n]` | search only, 10 candidates |
 | `get "<japanese>" [n]` | search + download the top n (default 1) |
+| `browse "<label>" [n]` | list everything under one label |
+| `random [n]` | n random illustrations out of ~25,000 |
+| `labels ["<substr>"]` | list the site's 239 labels |
 | `b64 <query\|path> [px]` | print a data URI (for CSP-restricted pages) |
 
-Flags: `--open` `--urls` `--json`. Output folder: `IRASUTOYA_OUT`, default
+Flags: `--label "<name>"` (keep only results carrying that label), `--get` (download what
+was listed), `--open` `--urls` `--json`. Output folder: `IRASUTOYA_OUT`, default
 `~/Downloads/irasutoya`.
+
+Labels are the practical way to keep a set coherent — `find "会議" --label 会社` drops the
+doctors and the construction crew. Note that Blogger will not AND a label path with `q`,
+so the filtering happens client-side.
 
 ## Licence and the 20-image rule
 

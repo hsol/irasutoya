@@ -27,10 +27,13 @@ tried: バナナを持ったサル | バナナ サル | ばなな 猿 | バナ�
 
 | Command | What it does |
 |---|---|
-| `find "<japanese>"` | search only, 10 candidates |
+| `find "<japanese>" [n]` | search only, 10 candidates |
 | `get "<japanese>" [n]` | search + download the top n (default 1) |
+| `browse "<label>" [n]` | list everything under one label |
+| `random [n]` | n random illustrations out of ~25,000 |
+| `labels ["<substr>"]` | list the site's 239 labels |
 | `b64 <query\|path> [px]` | print a data URI — expensive, see §4 |
-| Flags | `--open` open in a viewer / `--urls` include source URLs / `--json` full fields |
+| Flags | `--label "<name>"` keep only results with that label / `--get` also download what was listed / `--open` `--urls` `--json` |
 
 - Need several? `get "..." 3` downloads them **in one call**. Never loop one at a time.
 - Downloads land in `~/Downloads/irasutoya/`. Override with `IRASUTOYA_OUT=/some/dir`.
@@ -93,7 +96,13 @@ spellings — call once more with a broader single noun.
 - Pick the expression from the suffix in the result title: `（笑顔）` `（真剣）` `（困った顔）`
 - **The filename is the description.** `kaigi_hakui_shinken.png` = meeting · white coat
   (doctor) · serious face
-- Within one deliverable, stay in one filename-prefix family so the set looks coherent
+- Within one deliverable, stay in one filename-prefix family so the set looks coherent.
+  `--label` is the blunt version of the same idea: `find "会議" --label 会社` keeps the
+  office-worker cut and drops the doctors and construction workers. `labels` lists what
+  is available, `browse "<label>"` walks a whole category when you need a matching set.
+  (Do **not** put the label in the feed path together with `q` — Blogger does not AND
+  the two, and you get results that lack the label entirely. Filter client-side, which
+  is what `--label` does.)
 - Turn abstract verbs into **the object that represents them**: copying → `コピー機`,
   pasting → `テープのり` / `接着剤`, searching → `虫眼鏡`
 
