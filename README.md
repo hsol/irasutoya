@@ -53,13 +53,27 @@ Requires Python 3 and `curl`. No third-party packages. Network access to
 | `labels ["<substr>"]` | list the site's 239 labels |
 | `b64 <query\|path> [px]` | print a data URI (for CSP-restricted pages) |
 
-Flags: `--label "<name>"` (keep only results carrying that label), `--get` (download what
-was listed), `--open` `--urls` `--json`. Output folder: `IRASUTOYA_OUT`, default
-`~/Downloads/irasutoya`.
+Flags: `--label "<name>"` (keep only results carrying that label), `--size 800` (smaller
+copy), `--out <dir>`, `--get` (download what was listed), `--open` `--urls` `--json`.
+Output folder: `IRASUTOYA_OUT`, default `~/Downloads/irasutoya`.
+
+Downloads are the **original upload** — Blogger will happily serve you a downscaled copy
+if you ask for a fixed size, so the URL asks for `/s0/`. Expect ~1100×1160 and up to 1 MB;
+`--size 800` halves that when you are filling a slide, not a page.
 
 Labels are the practical way to keep a set coherent — `find "会議" --label 会社` drops the
 doctors and the construction crew. Note that Blogger will not AND a label path with `q`,
 so the filtering happens client-side.
+
+## Tests
+
+```bash
+python3 tests/test_search.py
+```
+
+Eleven cases, each one a bug this skill actually had — `リンゴを食べる` returning nothing,
+`サル` surfacing a prehistoric mammal, the `の` in `のり` being eaten as a particle. Hits
+the live site, takes about 15 seconds.
 
 ## Licence and the 20-image rule
 

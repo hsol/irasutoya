@@ -36,7 +36,10 @@ tried: バナナを持ったサル | バナナ サル | ばなな 猿 | バナ�
 | Flags | `--label "<name>"` keep only results with that label / `--get` also download what was listed / `--open` `--urls` `--json` |
 
 - Need several? `get "..." 3` downloads them **in one call**. Never loop one at a time.
-- Downloads land in `~/Downloads/irasutoya/`. Override with `IRASUTOYA_OUT=/some/dir`.
+- Downloads land in `~/Downloads/irasutoya/`. Override with `IRASUTOYA_OUT=/some/dir` or `--out`.
+- You get the **original upload** — often ~1100×1160 and close to 1 MB. For slides, docs
+  and web pages pass `--size 800`: half the bytes, no visible difference at normal
+  placement. Keep the original for print or when the image fills the frame.
 - Requires network access to `www.irasutoya.com` and `blogger.googleusercontent.com`.
   Some sandboxes block both — see §7 before assuming the site is down.
 

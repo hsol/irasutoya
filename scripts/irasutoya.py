@@ -15,6 +15,7 @@ CACHE = os.path.expanduser("~/.cache/irasutoya-labels.txt")
 UA   = "Mozilla/5.0"
 PART = "をがのにはでへとやもか"
 OUT  = os.path.expanduser(os.environ.get("IRASUTOYA_OUT", "~/Downloads/irasutoya"))
+SIZE = "s0"          # s0 = the original upload. --size 800 for a smaller copy.
 
 def _kana(s): return all("぀" <= c <= "ヿ" for c in s)
 def k2h(s):   return "".join(chr(ord(c)-0x60) if "ァ" <= c <= "ヶ" else c for c in s) if _kana(s) else s
@@ -139,7 +140,7 @@ def fetch(q=None, label=None, n=20, start=1):
         if not src:
             continue
         out.append({"title": e["title"]["$t"],
-                    "img": re.sub(r"/s\d+(?:-c)?/", "/s800/", src),
+                    "img": re.sub(r"/s\d+(?:-c)?/", f"/{SIZE}/", src),
                     "file": src.rsplit("/", 1)[-1],
                     "page": next((l["href"] for l in e.get("link", []) if l.get("rel") == "alternate"), ""),
                     "labels": [c["term"] for c in e.get("category", [])],
@@ -148,7 +149,7 @@ def fetch(q=None, label=None, n=20, start=1):
 
 def search(q, limit=10, label=None):
     vs, toks = variants(q)
-    with ThreadPoolExecutor(max_workers=len(vs)) as ex:
+    with ThreadPoolExecutor(max_workers=min(len(vs), 6)) as ex:
         groups = list(ex.map(fetch, vs))
     order, best = {v: i for i, v in enumerate(vs)}, {}
     for g in groups:
@@ -239,7 +240,7 @@ def report(res, header, urls=False):
             print("     " + r["img"])
 
 def parse_args(argv):
-    pos, flags, label = [], set(), None
+    pos, flags, label, opts = [], set(), None, {}
     i = 0
     while i < len(argv):
         x = argv[i]
@@ -247,9 +248,13 @@ def parse_args(argv):
             label = argv[i + 1]; i += 2; continue
         if x.startswith("--label="):
             label = x.split("=", 1)[1]; i += 1; continue
+        if x in ("--size", "--out") and i + 1 < len(argv):
+            opts[x[2:]] = argv[i + 1]; i += 2; continue
+        if x.startswith(("--size=", "--out=")):
+            k, v = x[2:].split("=", 1); opts[k] = v; i += 1; continue
         flags.add(x) if x.startswith("--") else pos.append(x)
         i += 1
-    return pos, flags, label
+    return pos, flags, label, opts
 
 USAGE = """irasutoya.py \u2014 search and download \u3044\u3089\u3059\u3068\u3084 illustrations
 
@@ -261,13 +266,20 @@ USAGE = """irasutoya.py \u2014 search and download \u3044\u3089\u3059\u3068\u308
   b64    <query|path> [px]     print a data URI                       (default 480px)
 
   --label "<name>"   keep only results carrying that label
+  --size 800         fetch a smaller copy; default is the original upload
+  --out <dir>        download here instead of $IRASUTOYA_OUT
   --get              also download what was listed (browse / random)
   --open  --urls  --json
 
   Output dir: $IRASUTOYA_OUT (default ~/Downloads/irasutoya)"""
 
 def main():
-    a, f, label = parse_args(sys.argv[1:])
+    global SIZE, OUT
+    a, f, label, opts = parse_args(sys.argv[1:])
+    if "size" in opts:
+        SIZE = opts["size"] if opts["size"].startswith("s") else "s" + opts["size"]
+    if "out" in opts:
+        OUT = os.path.expanduser(opts["out"])
     cmd = (a + ["find"])[0]
     q = a[1] if len(a) > 1 else ""
     n = int(a[2]) if len(a) > 2 and a[2].isdigit() else (1 if cmd in ("get", "b64") else 10)
