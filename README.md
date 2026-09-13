@@ -4,6 +4,10 @@ A [Claude](https://claude.com) skill that searches [いらすとや](https://www
 downloads the transparent PNGs, and drops them into whatever you're building — slides,
 docs, blog posts, web pages, design canvases.
 
+![How the skill works: say a concept in any spelling, the script fans out across Japanese
+orthographic variants in parallel and ranks the results, then downloads the original
+transparent PNG](assets/how-it-works.png)
+
 ```bash
 $ python3 scripts/irasutoya.py get "バナナを持ったサル"
 tried: バナナを持ったサル | バナナ サル | ばなな 猿 | バナナ   (10 hits)
