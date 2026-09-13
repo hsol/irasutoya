@@ -37,9 +37,9 @@ tried: バナナを持ったサル | バナナ サル | ばなな 猿 | バナ�
 
 - Need several? `get "..." 3` downloads them **in one call**. Never loop one at a time.
 - Downloads land in `~/Downloads/irasutoya/`. Override with `IRASUTOYA_OUT=/some/dir` or `--out`.
-- You get the **original upload** — often ~1100×1160 and close to 1 MB. For slides, docs
-  and web pages pass `--size 800`: half the bytes, no visible difference at normal
-  placement. Keep the original for print or when the image fills the frame.
+- The default is the **original upload** — often ~1100×1160 and close to 1 MB. That is
+  the right default (asking for a fixed size makes Blogger downscale silently), but it
+  is rarely the right size. **Pick one per §3** before downloading.
 - Requires network access to `www.irasutoya.com` and `blogger.googleusercontent.com`.
   Some sandboxes block both — see §7 before assuming the site is down.
 
@@ -111,9 +111,23 @@ spellings — call once more with a broader single noun.
 
 ## 3. Placing the file
 
+Pick the size from where it is going. Pass it at download time — re-fetching later costs
+another round trip, and resizing a PNG locally costs quality you didn't need to lose.
+
+| Going into | `--size` | Why |
+|---|---|---|
+| Print, poster, anything that fills the frame | *(omit — original)* | You cannot get the pixels back later |
+| Slide deck, document body, web page | `800` | Half the bytes, no visible difference |
+| Inline icon, list bullet, avatar | `320` | ~40 KB instead of ~1 MB |
+| base64 into an artifact | `240` or less | See §4 — every byte crosses the conversation |
+
+A ten-image deck is ~10 MB at the original and ~4 MB at `--size 800`. When you are
+downloading a set for one deliverable, size them all the same so the set stays coherent.
+
 - **pptx** — pass the downloaded path straight to your pptx tooling. The PNGs have
   transparent backgrounds, so don't put a white box behind them.
-- **docx / PDF** — use the format skill's image insert; 30–50% of body width.
+- **docx / PDF** — use the format skill's image insert; 30–50% of body width. Use the
+  original if the document will be printed.
 - **Blog / Markdown** — move the file next to the post (`images/`) and use a relative
   path. Write the alt text in the reader's language, not the Japanese title.
 - **Artifacts and design canvases** — see §4.

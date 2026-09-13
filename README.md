@@ -57,9 +57,10 @@ Flags: `--label "<name>"` (keep only results carrying that label), `--size 800` 
 copy), `--out <dir>`, `--get` (download what was listed), `--open` `--urls` `--json`.
 Output folder: `IRASUTOYA_OUT`, default `~/Downloads/irasutoya`.
 
-Downloads are the **original upload** — Blogger will happily serve you a downscaled copy
-if you ask for a fixed size, so the URL asks for `/s0/`. Expect ~1100×1160 and up to 1 MB;
-`--size 800` halves that when you are filling a slide, not a page.
+Downloads default to the **original upload** — Blogger quietly downscales whenever the URL
+names a size, so the URL names `/s0/`. Expect ~1100×1160 and up to 1 MB, and pick a size
+for the destination: `--size 800` for slides and web, `320` for inline icons, `240` or less
+before base64, original for print.
 
 Labels are the practical way to keep a set coherent — `find "会議" --label 会社` drops the
 doctors and the construction crew. Note that Blogger will not AND a label path with `q`,
